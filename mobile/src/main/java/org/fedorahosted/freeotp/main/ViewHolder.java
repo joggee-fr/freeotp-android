@@ -20,8 +20,6 @@
 
 package org.fedorahosted.freeotp.main;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.os.Handler;
 import android.text.BidiFormatter;
@@ -37,13 +35,13 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import androidx.recyclerview.widget.RecyclerView;
+
 import com.squareup.picasso.Picasso;
 
 import org.fedorahosted.freeotp.Code;
 import org.fedorahosted.freeotp.R;
 import org.fedorahosted.freeotp.Token;
-
-import androidx.recyclerview.widget.RecyclerView;
 
 class ViewHolder extends RecyclerView.ViewHolder {
     interface EventListener {
@@ -73,6 +71,8 @@ class ViewHolder extends RecyclerView.ViewHolder {
     private TextView mCode;
 
     private View mView;
+
+    private static final long FADE_DURATION = 500; // milliseconds
 
     private final View.OnClickListener mViewClick = new View.OnClickListener() {
         @Override
@@ -114,17 +114,28 @@ class ViewHolder extends RecyclerView.ViewHolder {
         }
     };
 
-    private static void fade(final View view, final boolean in, int duration) {
-        view.setVisibility(View.VISIBLE);
-        view.animate()
-            .setInterpolator(new AccelerateDecelerateInterpolator())
-            .setDuration(duration)
-            .alpha(in ? 1f : 0f)
-            .withLayer()
-            .start();
+    private static void fade(final View view, final boolean in, long duration) {
+        if (duration > 0) {
+            view.setVisibility(View.VISIBLE);
+            view.animate()
+                    .setInterpolator(new AccelerateDecelerateInterpolator())
+                    .setDuration(duration)
+                    .alpha(in ? 1f : 0f)
+                    .withLayer()
+                    .start();
+        } else {
+            // Not really a fade in this case, just do it right now
+            if (in) {
+                view.setVisibility(View.VISIBLE);
+                view.setAlpha(1f);
+            } else {
+                view.setVisibility(View.GONE);
+                view.setAlpha(0f);
+            }
+        }
     }
 
-    private void displayCode(Code code, Token.Type type, int animationDuration) {
+    private void displayCode(Code code, Token.Type type, long animationDuration) {
         if (code == null)
             return;
 
@@ -156,7 +167,7 @@ class ViewHolder extends RecyclerView.ViewHolder {
 
         mCountdown.cancel();
         mCode.setText(text);
-        Long timeLeft;
+        long timeLeft;
         if (type == Token.Type.HOTP) {
             timeLeft = code.timeLeft();
             mCountdown.setDuration(timeLeft);
@@ -165,19 +176,25 @@ class ViewHolder extends RecyclerView.ViewHolder {
             mCountdown.setDuration(timeLeft);
         }
 
+        fadeIn(animationDuration);
         mHandler.removeCallbacksAndMessages(null);
-        mHandler.postDelayed(() -> fadeOut(), timeLeft);
+        mHandler.postDelayed(() -> fadeOut(FADE_DURATION), timeLeft);
 
         mCountdown.setIntValues(code.getProgress(mProgress.getMax()), 0);
         mCountdown.start();
     }
 
-    void fadeOut() {
-        /* Fade out */
-        fade(mPassive, true, 500);
-        fade(mActive, false, 500);
-
+    private void fadeIn(long duration) {
+        fade(mActive, true, duration);
+        fade(mPassive, false, duration);
     }
+
+    private void fadeOut(long duration) {
+        /* Fade out */
+        fade(mPassive, true, duration);
+        fade(mActive, false, duration);
+    }
+
     ViewHolder(View itemView, EventListener listener) {
         super(itemView);
 
@@ -204,22 +221,6 @@ class ViewHolder extends RecyclerView.ViewHolder {
         mCountdown.setPropertyName("progress");
         mCountdown.setTarget(mProgress);
         mCountdown.setAutoCancel(true);
-        mCountdown.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationCancel(Animator animation) {
-                mView.setEnabled(true);
-            }
-
-            @Override
-            public void onAnimationStart(Animator animation) {
-                super.onAnimationStart(animation);
-
-                /* Fade in */
-                Log.i(LOGTAG, String.format("onAnimationStart: fade"));
-                fade(mPassive, false, 500);
-                fade(mActive, true, 500);
-            }
-        });
 
         mIcons.setOnClickListener(mSelectClick);
         mImageActive.setOnClickListener(mSelectClick);
@@ -271,13 +272,12 @@ class ViewHolder extends RecyclerView.ViewHolder {
             // As the view may have been recycled from a previous one with code displayed,
             // do not forget to reset this part to avoid issue
             mHandler.removeCallbacksAndMessages(null);
-            mPassive.setAlpha(1f);
-            mActive.setAlpha(0f);
+            fadeOut(0);
         }
     }
 
     void displayCode(Code code, Token.Type type) {
-        displayCode(code, type,500);
+        displayCode(code, type,FADE_DURATION);
     }
 
     CharSequence getIssuer() {
