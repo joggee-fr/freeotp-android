@@ -234,8 +234,6 @@ class ViewHolder extends RecyclerView.ViewHolder {
         });
     }
 
-
-
     private void setSelected(boolean selected) {
         mImage.setVisibility(selected ? View.INVISIBLE : View.VISIBLE);
         mImageActive.setVisibility(selected ? View.INVISIBLE : View.VISIBLE);
@@ -269,6 +267,12 @@ class ViewHolder extends RecyclerView.ViewHolder {
         setSelected(selected);
         if (code != null) {
             displayCode(code, type, 0);
+        } else {
+            // As the view may have been recycled from a previous one with code displayed,
+            // do not forget to reset this part to avoid issue
+            mHandler.removeCallbacksAndMessages(null);
+            mPassive.setAlpha(1f);
+            mActive.setAlpha(0f);
         }
     }
 
