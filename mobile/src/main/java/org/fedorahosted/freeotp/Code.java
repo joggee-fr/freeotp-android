@@ -93,23 +93,21 @@ public class Code {
         return mCode;
     }
 
-    public long timeValid() {
-        return mPeriod;
-    }
-
     public long timeRemaining() {
-        long time_remaining = mPeriod - mStart % mPeriod;
-        return time_remaining / 1000;
+        if (mPeriod > 0) {
+            // For TOTP, return the time remaining in the period slot from timestamp
+            // where the code has been computed i.e. mStart
+            return mPeriod - mStart % mPeriod;
+        } else {
+            // For HOTP, let's simply fix it to 30s
+            return 30000;
+        }
     }
 
     public long timeLeft() {
         long now = Time.INSTANCE.current();
-        long left = mStart + mPeriod - now;
+        long left = mStart + timeRemaining() - now;
         return left < 0 ? 0 : left;
-    }
-
-    public int getProgress(int max) {
-        return (int) (timeLeft() * max / timeValid());
     }
 
     public boolean isValid() {

@@ -297,7 +297,7 @@ public class Adapter extends SelectableAdapter<ViewHolder> implements ViewHolder
             return new Code("ERROR", 15);
         }
 
-        final Long id = getItemId(position);
+        final long id = getItemId(position);
         mActive.put(id, code);
 
         mHandler.postDelayed(new Runnable() {
