@@ -28,6 +28,7 @@ import android.text.BidiFormatter;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewPropertyAnimator;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
@@ -37,13 +38,13 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import androidx.recyclerview.widget.RecyclerView;
+
 import com.squareup.picasso.Picasso;
 
 import org.fedorahosted.freeotp.Code;
 import org.fedorahosted.freeotp.R;
 import org.fedorahosted.freeotp.Token;
-
-import androidx.recyclerview.widget.RecyclerView;
 
 class ViewHolder extends RecyclerView.ViewHolder {
     interface EventListener {
@@ -74,6 +75,8 @@ class ViewHolder extends RecyclerView.ViewHolder {
 
     private View mView;
 
+    private static final long FADE_DURATION = 500; // milliseconds
+
     private final View.OnClickListener mViewClick = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
@@ -94,7 +97,7 @@ class ViewHolder extends RecyclerView.ViewHolder {
         public void onClick(final View v) {
             v.animate()
                 .setInterpolator(new AccelerateInterpolator())
-                .setDuration(100)
+                .setDuration(1000)
                 .rotationY(90)
                 .withLayer()
                 .withEndAction(new Runnable() {
@@ -105,7 +108,7 @@ class ViewHolder extends RecyclerView.ViewHolder {
                         v.setRotationY(-90);
                         v.animate()
                             .setInterpolator(new DecelerateInterpolator())
-                            .setDuration(100)
+                            .setDuration(1000)
                             .rotationY(0)
                             .withLayer()
                             .start();
@@ -114,17 +117,37 @@ class ViewHolder extends RecyclerView.ViewHolder {
         }
     };
 
-    private static void fade(final View view, final boolean in, int duration) {
-        view.setVisibility(View.VISIBLE);
-        view.animate()
-            .setInterpolator(new AccelerateDecelerateInterpolator())
-            .setDuration(duration)
-            .alpha(in ? 1f : 0f)
-            .withLayer()
-            .start();
+    private static void fade(final View view, final boolean in, long duration) {
+        ViewPropertyAnimator animator = view.animate();
+        animator.cancel();
+
+        if (duration > 0) {
+            if (in)
+                view.setVisibility(View.VISIBLE);
+
+            animator
+                .setInterpolator(new AccelerateDecelerateInterpolator())
+                .setDuration(duration)
+                .alpha(in ? 1f : 0f)
+                .withLayer()
+                .withEndAction(() -> {
+                    if (!in)
+                        view.setVisibility(View.GONE);
+                })
+                .start();
+        } else {
+            // Not really a fade in this case, just do it right now
+            if (in) {
+                view.setAlpha(1f);
+                view.setVisibility(View.VISIBLE);
+            } else {
+                view.setAlpha(0f);
+                view.setVisibility(View.GONE);
+            }
+        }
     }
 
-    private void displayCode(Code code, Token.Type type, int animationDuration) {
+    private void displayCode(Code code, Token.Type type, long animationDuration) {
         if (code == null)
             return;
 
@@ -156,7 +179,7 @@ class ViewHolder extends RecyclerView.ViewHolder {
 
         mCountdown.cancel();
         mCode.setText(text);
-        Long timeLeft;
+        long timeLeft;
         if (type == Token.Type.HOTP) {
             timeLeft = code.timeLeft();
             mCountdown.setDuration(timeLeft);
@@ -166,18 +189,23 @@ class ViewHolder extends RecyclerView.ViewHolder {
         }
 
         mHandler.removeCallbacksAndMessages(null);
-        mHandler.postDelayed(() -> fadeOut(), timeLeft);
+        mHandler.postDelayed(() -> fadeOut(FADE_DURATION), timeLeft);
 
         mCountdown.setIntValues(code.getProgress(mProgress.getMax()), 0);
         mCountdown.start();
     }
 
-    void fadeOut() {
-        /* Fade out */
-        fade(mPassive, true, 500);
-        fade(mActive, false, 500);
-
+    private void fadeIn(long duration) {
+        fade(mActive, true, duration);
+        fade(mPassive, false, duration);
     }
+
+    private void fadeOut(long duration) {
+        /* Fade out */
+        fade(mPassive, true, duration);
+        fade(mActive, false, duration);
+    }
+
     ViewHolder(View itemView, EventListener listener) {
         super(itemView);
 
@@ -216,8 +244,7 @@ class ViewHolder extends RecyclerView.ViewHolder {
 
                 /* Fade in */
                 Log.i(LOGTAG, String.format("onAnimationStart: fade"));
-                fade(mPassive, false, 500);
-                fade(mActive, true, 500);
+                fadeIn(FADE_DURATION);
             }
         });
 
@@ -271,13 +298,12 @@ class ViewHolder extends RecyclerView.ViewHolder {
             // As the view may have been recycled from a previous one with code displayed,
             // do not forget to reset this part to avoid issue
             mHandler.removeCallbacksAndMessages(null);
-            mPassive.setAlpha(1f);
-            mActive.setAlpha(0f);
+            fadeOut(0);
         }
     }
 
     void displayCode(Code code, Token.Type type) {
-        displayCode(code, type,500);
+        displayCode(code, type, FADE_DURATION);
     }
 
     CharSequence getIssuer() {
