@@ -64,6 +64,7 @@ class ViewHolder extends RecyclerView.ViewHolder {
     private ViewGroup mPassive;
     private ViewGroup mActive;
     private ViewGroup mIcons;
+    private ViewGroup mIconsActive;
     private ImageView mCheck;
     private ImageView mCheckActive;
     private ImageView mImage;
@@ -75,6 +76,7 @@ class ViewHolder extends RecyclerView.ViewHolder {
 
     private View mView;
 
+    private static final long SELECT_HALF_DURATION = 100; // milliseconds
     private static final long FADE_DURATION = 500; // milliseconds
 
     private final View.OnClickListener mViewClick = new View.OnClickListener() {
@@ -97,22 +99,18 @@ class ViewHolder extends RecyclerView.ViewHolder {
         public void onClick(final View v) {
             v.animate()
                 .setInterpolator(new AccelerateInterpolator())
-                .setDuration(1000)
+                .setDuration(SELECT_HALF_DURATION)
                 .rotationY(90)
                 .withLayer()
-                .withEndAction(new Runnable() {
-                    @Override
-                    public void run() {
-                        int pos = getAdapterPosition();
-                        setSelected(mEventListener.onSelectionToggled(ViewHolder.this));
-                        v.setRotationY(-90);
-                        v.animate()
-                            .setInterpolator(new DecelerateInterpolator())
-                            .setDuration(1000)
-                            .rotationY(0)
-                            .withLayer()
-                            .start();
-                    }
+                .withEndAction(() -> {
+                    setSelected(mEventListener.onSelectionToggled(ViewHolder.this));
+                    v.setRotationY(-90);
+                    v.animate()
+                        .setInterpolator(new DecelerateInterpolator())
+                        .setDuration(SELECT_HALF_DURATION)
+                        .rotationY(0)
+                        .withLayer()
+                        .start();
                 }).start();
         }
     };
@@ -190,6 +188,7 @@ class ViewHolder extends RecyclerView.ViewHolder {
 
         mHandler.removeCallbacksAndMessages(null);
         mHandler.postDelayed(() -> fadeOut(FADE_DURATION), timeLeft);
+        fadeIn(animationDuration);
 
         mCountdown.setIntValues(code.getProgress(mProgress.getMax()), 0);
         mCountdown.start();
@@ -219,6 +218,7 @@ class ViewHolder extends RecyclerView.ViewHolder {
         mIssuer = itemView.findViewById(R.id.issuer);
         mLabel = itemView.findViewById(R.id.label);
         mIcons = itemView.findViewById(R.id.icons);
+        mIconsActive = itemView.findViewById(R.id.icons_active);
         mCheck = itemView.findViewById(R.id.check);
         mCheckActive = itemView.findViewById(R.id.check_active);
         mImage = itemView.findViewById(R.id.image);
@@ -232,32 +232,14 @@ class ViewHolder extends RecyclerView.ViewHolder {
         mCountdown.setPropertyName("progress");
         mCountdown.setTarget(mProgress);
         mCountdown.setAutoCancel(true);
-        mCountdown.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationCancel(Animator animation) {
-                mView.setEnabled(true);
-            }
-
-            @Override
-            public void onAnimationStart(Animator animation) {
-                super.onAnimationStart(animation);
-
-                /* Fade in */
-                Log.i(LOGTAG, String.format("onAnimationStart: fade"));
-                fadeIn(FADE_DURATION);
-            }
-        });
 
         mIcons.setOnClickListener(mSelectClick);
-        mImageActive.setOnClickListener(mSelectClick);
+        mIconsActive.setOnClickListener(mSelectClick);
         mShare.setOnClickListener(mShareClick);
         mView.setOnClickListener(mViewClick);
-        mView.setOnLongClickListener(new View.OnLongClickListener() {
-            @Override
-            public boolean onLongClick(View v) {
-                mSelectClick.onClick(mIcons);
-                return true;
-            }
+        mView.setOnLongClickListener(v -> {
+            mSelectClick.onClick(mIcons);
+            return true;
         });
     }
 
