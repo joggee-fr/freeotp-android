@@ -97,10 +97,10 @@ public class Code {
 
     public Code(String code, long period, boolean alignToWindow) {
         mPeriod = period * 1000;
+        long now = Time.INSTANCE.current();
         if (alignToWindow) {
-            // For TOTP: mStart is not used since we calculate based on current time
-            // Set to 0 to indicate TOTP mode
-            mStart = 0;
+            // For TOTP: mStart is current window start
+            mStart = (now / mPeriod) * mPeriod;
         } else {
             // For HOTP: use current time when code was generated
             mStart = Time.INSTANCE.current();
@@ -117,21 +117,8 @@ public class Code {
     }
 
     public long timeLeft() {
-        long now = Time.INSTANCE.current();
-        if (mStart == 0) {
-            // TOTP mode: calculate time until next period boundary based on epoch
-            long windowStart = (now / mPeriod) * mPeriod;
-            long left = windowStart + mPeriod - now;
-            return left < 0 ? 0 : left;
-        } else {
-            // HOTP mode: calculate time since code was generated
-            long left = mStart + mPeriod - now;
-            return left < 0 ? 0 : left;
-        }
-    }
-
-    public int getProgress(int max) {
-        return (int) (timeLeft() * max / timeValid());
+        long left = mStart + mPeriod - Time.INSTANCE.current();
+        return left < 0 ? 0 : left;
     }
 
     public boolean isValid() {
