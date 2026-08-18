@@ -57,10 +57,12 @@ public class TokenPersistence {
 
     private static final String LOGTAG = "TokenPersistence";
     private static final String BACKUP = "tokenBackup";
+    private static final String RESTORE = "tokenRestore";
     private static final String STORE = "tokenStore";
     private static final String MASTER = "masterKey";
 
     private final SharedPreferences mBackups;
+    private final SharedPreferences mRestoreBackups;
     private final SharedPreferences mTokens;
     private final Context mContext;
     private final KeyStore mKeyStore;
@@ -68,6 +70,7 @@ public class TokenPersistence {
     public TokenPersistence(Context ctx)
             throws KeyStoreException, NoSuchAlgorithmException, IOException, CertificateException {
         mBackups = ctx.getSharedPreferences(BACKUP, MODE_PRIVATE);
+        mRestoreBackups = ctx.getSharedPreferences(RESTORE, MODE_PRIVATE);
         mTokens = ctx.getSharedPreferences(STORE, MODE_PRIVATE);
         mContext = ctx;
 
@@ -145,13 +148,14 @@ public class TokenPersistence {
 
     public List<RestoredData> restore(String pwd) throws GeneralSecurityException,
             IOException, JSONException, BadPasswordException  {
-
         ArrayList<RestoredData> tokensList = new ArrayList<>();
 
-        String s = mBackups.getString(MASTER, null);
+        String s = mRestoreBackups.getString(MASTER, null);
         if (s == null) {
-            s = new Gson().toJson(MasterKey.generate(pwd));
-            mBackups.edit().putString(MASTER, s).apply();
+            // TODO
+            //s = new Gson().toJson(MasterKey.generate(pwd));
+            //mBackups.edit().putString(MASTER, s).apply();
+            throw new IOException();
         }
 
         MasterKey mk = new Gson().fromJson(s, MasterKey.class);
@@ -163,15 +167,7 @@ public class TokenPersistence {
             throw new BadPasswordException();
         }
 
-        // Overwrite the master key stored in the keystore, restored entries are then re-encrypted
-        KeyProtection kp = new KeyProtection.Builder(KeyProperties.PURPOSE_ENCRYPT)
-                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                .build();
-
-        mKeyStore.setEntry(MASTER, new KeyStore.SecretKeyEntry(mk.decrypt(pwd)), kp);
-
-        for (Map.Entry<String, ?> item : mBackups.getAll().entrySet()) {
+        for (Map.Entry<String, ?> item : mRestoreBackups.getAll().entrySet()) {
             JSONObject obj;
             String uuid = item.getKey();
             Object v = item.getValue();
@@ -203,7 +199,7 @@ public class TokenPersistence {
             }
 
             // Retrieve encrypted backup data from shared preferences
-            String tokenData = mBackups.getString(uuid.concat("-token"), null);
+            String tokenData = mRestoreBackups.getString(uuid.concat("-token"), null);
             EncryptedKey ekKey = new Gson().fromJson(obj.getString("key"), EncryptedKey.class);
 
             // Decrypt the token
@@ -242,7 +238,7 @@ public class TokenPersistence {
         try {
             InputStream inputStream = mContext.getContentResolver().openInputStream(uri);
                 input = new ObjectInputStream(inputStream);
-                SharedPreferences.Editor prefEdit = mBackups.edit();
+                SharedPreferences.Editor prefEdit = mRestoreBackups.edit();
                 prefEdit.clear();
                 Map<String, ?> entries = (Map<String, ?>) input.readObject();
                 for (Map.Entry<String, ?> entry : entries.entrySet()) {
