@@ -43,13 +43,13 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 
 public class TokenPersistence {
-    public class RestoredData {
+    public static class RestoredData {
         public SecretKey key;
         public Token token;
         public String uuid;
     }
 
-    public class BadPasswordException extends Exception {
+    public static class BadPasswordException extends Exception {
         public BadPasswordException() {
             super("Invalid password");
         }
